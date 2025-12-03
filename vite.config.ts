@@ -4,12 +4,14 @@ import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
-export default defineConfig({
-    base: '/todo-app-fe/',
-    plugins: [react(), tailwindcss()],
-    resolve: {
-        alias: {
-            '@': path.resolve(__dirname, './src'),
+export default defineConfig(({ mode }) => {
+    return {
+        base: mode === 'production' ? '/todo-app-fe/' : '/',
+        plugins: [react(), tailwindcss()],
+        resolve: {
+            alias: {
+                '@': path.resolve(__dirname, './src'),
+            },
         },
-    },
+    };
 });
