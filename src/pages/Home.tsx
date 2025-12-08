@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
+import {
+    useDeleteApiTodoId,
+    useGetApiTodo,
+    usePostApiTodo,
+    usePutApiTodoId,
+} from '@/api/gen/todo/todo';
+import type { Todo } from '@/api/gen/index.schemas';
 
 type TodoList = {
     id: number;
@@ -11,26 +18,67 @@ type TodoList = {
 };
 
 export default function Home() {
-    const [list, setList] = useState<TodoList[]>([]);
+    const { data: todos, refetch } = useGetApiTodo();
+
+    const { mutate: postMutate } = usePostApiTodo({
+        mutation: {
+            onSuccess: data => {
+                console.log('Todo added:', data);
+                refetch();
+            },
+        },
+    });
+
+    const { mutate: deleteMutate } = useDeleteApiTodoId({
+        mutation: {
+            onSuccess: data => {
+                console.log('Todo deleted:', data);
+                refetch();
+            },
+        },
+    });
+
+    const { mutate: updateMutate } = usePutApiTodoId({
+        mutation: {
+            onSuccess: data => {
+                console.log('Todo updated:', data);
+                refetch();
+            },
+        },
+    });
+
     const [input, setInput] = useState<string>('');
+
+    const list: TodoList[] = useMemo(() => {
+        return (
+            todos?.data?.map((todo: Todo) => ({
+                id: todo.id,
+                text: todo.name,
+                completed: todo.isCompleted,
+            })) ?? []
+        );
+    }, [todos]);
 
     const removeInput = () => setInput('');
 
     const addTodo = () => {
         if (input.trim() === '') return;
-        setList([...list, { id: list.length + 1, text: input, completed: false }]);
+        postMutate({ data: { name: input, isCompleted: false } });
         removeInput();
     };
 
     const toggleCompleted = (id: number) => {
-        setList(
-            list.map(todo => (todo.id === id ? { ...todo, completed: !todo.completed } : todo))
-        );
+        const todo = list.find(todo => todo.id === id);
+        if (!todo) return;
+        updateMutate({
+            id,
+            data: { id, name: todo.text, isCompleted: !todo.completed },
+        });
     };
 
     const removeTodo = (id: number) => {
         if (!confirm('Are you sure you want to delete this todo?')) return;
-        setList(list.filter(todo => todo.id !== id));
+        deleteMutate({ id });
     };
 
     return (
@@ -69,10 +117,13 @@ export default function Home() {
                             <Checkbox
                                 checked={todo.completed}
                                 onCheckedChange={() => toggleCompleted(todo.id)}
+                                className="cursor-pointer"
                             />
                             <span
                                 className={`text-card-foreground flex-1 text-lg ${
-                                    todo.completed ? 'line-through decoration-red-500' : ''
+                                    todo.completed
+                                        ? 'line-through decoration-red-500 decoration-2'
+                                        : ''
                                 }`}
                             >
                                 {todo.text}
